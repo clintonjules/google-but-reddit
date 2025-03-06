@@ -1,10 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
     const strictlyReddit = document.getElementById("strictlyReddit");
-    const showDiscussions = document.getElementById("showdDscusions"); // ✅ Corrected ID
+    const showDiscussions = document.getElementById("showDiscussions");
 
-    chrome.storage.local.get(["strictlyReddit", "showdDscusions"], (data) => {
+    chrome.storage.local.get(["strictlyReddit", "showDiscussions"], (data) => {
         strictlyReddit.checked = data.strictlyReddit || false;
-        showDiscussions.checked = data.showdDscusions || false;
+        showDiscussions.checked = data.showDiscussions || false;
     });
 
     strictlyReddit.addEventListener("change", () => {
@@ -12,6 +12,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     showDiscussions.addEventListener("change", () => {
-        chrome.storage.local.set({ showdDscusions: showDiscussions.checked });
+        chrome.storage.local.set({ showDiscussions: showDiscussions.checked });
     });
 });

@@ -1,14 +1,29 @@
-chrome.storage.local.get(["showSidebar", "strictlyReddit", "showdDscusions"], (data) => {
-    if (!data.showSidebar || !data.showdDscusions) return; // ✅ Only show if both are enabled
+let query = new URLSearchParams(window.location.search).get("q");
 
-    let query = new URLSearchParams(window.location.search).get("q");
-    if (!query) return; // Stop if no search query is found
+function cleanQuery(query) {
+    return query.replace(/\breddit\b/gi, "").replace(/\bsite:\.com\b/gi, "").trim();
+}
+
+function updateGoogleSearchBar(newText) {
+    const searchBox = document.querySelector("textarea.gLFyf");
+    if (searchBox) {
+        searchBox.value = newText;
+        searchBox.textContent = newText;
+
+        // Dispatch events to make sure Google registers the change
+        searchBox.dispatchEvent(new Event("input", { bubbles: true }));
+        searchBox.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+}
+
+chrome.storage.local.get(["showDiscussions", "strictlyReddit"], (data) => {
+    if (!data.showDiscussions) return;
+
+    if (!query) return;
 
     let redditQuery = query;
-
     if (data.strictlyReddit) {
-        redditQuery = redditQuery.replace(/\breddit\b/gi, "").trim();
-        redditQuery = redditQuery.replace(/\bsite:reddit\.com\b/gi, "").trim();
+        redditQuery = cleanQuery(query);
     }
 
     const redditSearchUrl = `https://www.reddit.com/search/?q=${encodeURIComponent(redditQuery)}`;
@@ -32,7 +47,7 @@ chrome.storage.local.get(["showSidebar", "strictlyReddit", "showdDscusions"], (d
 
     resultsContainer.innerHTML = `
         <h3 style="margin-bottom: 10px;">Reddit Discussions Based on Your Query</h3>
-        <div id="reddit-posts"></div>
+        <div id="reddit-posts">Loading discussions...</div>
         <a href="${redditSearchUrl}" target="_blank" style="
             display: inline-block;
             background-color: var(--color-button, #007bff);
@@ -48,22 +63,30 @@ chrome.storage.local.get(["showSidebar", "strictlyReddit", "showdDscusions"], (d
         ">View More on Reddit</a>
     `;
 
-    const mainResults = document.getElementById("search");
-
+    let mainResults = document.getElementById("search");
     if (mainResults) {
-        mainResults.insertAdjacentElement("afterbegin", resultsContainer);
+        mainResults.insertAdjacentElement("beforebegin", resultsContainer);
+    } else {
+        return;
     }
 
     const redditApiUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(redditQuery)}`;
 
     fetch(redditApiUrl)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error("Reddit API request failed");
+            return response.json();
+        })
         .then(data => {
             const results = data.data.children;
-            if (!results.length) return;
-
             const postsContainer = document.getElementById("reddit-posts");
-            postsContainer.innerHTML = ""; // Clear old results
+
+            if (!results.length) {
+                postsContainer.innerHTML = "No discussions found.";
+                return;
+            }
+
+            postsContainer.innerHTML = "";
 
             results.slice(0, 5).forEach(post => {
                 const link = document.createElement("a");
@@ -77,7 +100,9 @@ chrome.storage.local.get(["showSidebar", "strictlyReddit", "showdDscusions"], (d
                 postsContainer.appendChild(link);
             });
         })
-        .catch(error => console.error("Error fetching Reddit results:", error));
+        .catch(() => {
+            document.getElementById("reddit-posts").innerText = "Failed to load discussions.";
+        });
 
     const applyTheme = () => {
         const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -89,3 +114,5 @@ chrome.storage.local.get(["showSidebar", "strictlyReddit", "showdDscusions"], (d
     applyTheme();
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 });
+
+updateGoogleSearchBar(cleanQuery(query));
