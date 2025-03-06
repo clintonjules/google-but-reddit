@@ -1,8 +1,8 @@
 {
     "manifest_version": 3,
     "name": "Google, but Reddit",
-    "version": "1.2",
-    "description": "Enhance Google searches with Reddit integration: strictly Reddit or display results in a sidebar.",
+    "version": "1.0",
+    "description": "Enhance Google searches with Reddit integration: Reddit related Google results or direct Reddit searches.",
     "background": {
       "service_worker": "background.js",
       "type": "module"

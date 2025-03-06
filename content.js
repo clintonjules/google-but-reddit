@@ -1,38 +1,39 @@
 let query = new URLSearchParams(window.location.search).get("q");
 
 function cleanQuery(query) {
-    return query.replace(/\breddit\b/gi, "").replace(/\bsite:\.com\b/gi, "").trim();
+  return query
+    .replace(/\breddit\b/gi, "")
+    .replace(/\bsite:\.com\b/gi, "")
+    .trim();
 }
 
 function updateGoogleSearchBar(newText) {
-    const searchBox = document.querySelector("textarea.gLFyf");
-    if (searchBox) {
-        searchBox.value = newText;
-        searchBox.textContent = newText;
-
-        // Dispatch events to make sure Google registers the change
-        searchBox.dispatchEvent(new Event("input", { bubbles: true }));
-        searchBox.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+  const searchBox = document.querySelector("textarea.gLFyf");
+  if (searchBox) {
+    searchBox.value = newText;
+    searchBox.textContent = newText;
+  }
 }
 
 chrome.storage.local.get(["showDiscussions", "strictlyReddit"], (data) => {
-    if (!data.showDiscussions) return;
+  if (!data.showDiscussions) return;
 
-    if (!query) return;
+  if (!query) return;
 
-    let redditQuery = query;
-    if (data.strictlyReddit) {
-        redditQuery = cleanQuery(query);
-    }
+  let redditQuery = query;
+  if (data.strictlyReddit) {
+    redditQuery = cleanQuery(query);
+  }
 
-    const redditSearchUrl = `https://www.reddit.com/search/?q=${encodeURIComponent(redditQuery)}`;
+  const redditSearchUrl = `https://www.reddit.com/search/?q=${encodeURIComponent(
+    redditQuery
+  )}`;
 
-    if (document.getElementById("reddit-results-container")) return;
+  if (document.getElementById("reddit-results-container")) return;
 
-    const resultsContainer = document.createElement("div");
-    resultsContainer.id = "reddit-results-container";
-    resultsContainer.style.cssText = `
+  const resultsContainer = document.createElement("div");
+  resultsContainer.id = "reddit-results-container";
+  resultsContainer.style.cssText = `
         background: var(--color-background, #ffffff);
         color: var(--color-text, #000000);
         border: 1px solid var(--color-border, #ddd);
@@ -45,7 +46,7 @@ chrome.storage.local.get(["showDiscussions", "strictlyReddit"], (data) => {
         transition: background 0.3s, color 0.3s;
     `;
 
-    resultsContainer.innerHTML = `
+  resultsContainer.innerHTML = `
         <h3 style="margin-bottom: 10px;">Reddit Discussions Based on Your Query</h3>
         <div id="reddit-posts">Loading discussions...</div>
         <a href="${redditSearchUrl}" target="_blank" style="
@@ -63,56 +64,65 @@ chrome.storage.local.get(["showDiscussions", "strictlyReddit"], (data) => {
         ">View More on Reddit</a>
     `;
 
-    let mainResults = document.getElementById("search");
-    if (mainResults) {
-        mainResults.insertAdjacentElement("beforebegin", resultsContainer);
-    } else {
+  let mainResults = document.getElementById("search");
+  if (mainResults) {
+    mainResults.insertAdjacentElement("beforebegin", resultsContainer);
+  } else {
+    return;
+  }
+
+  const redditApiUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(
+    'title:"' + redditQuery + '"'
+  )}&sort=relevance&type=link&restrict_sr=off`;
+
+  fetch(redditApiUrl)
+    .then((response) => {
+      if (!response.ok) throw new Error("Reddit API request failed");
+      return response.json();
+    })
+    .then((data) => {
+      const results = data.data.children;
+      const postsContainer = document.getElementById("reddit-posts");
+
+      if (!results.length) {
+        postsContainer.innerHTML = "No directly relevant discussions found.";
         return;
-    }
+      }
 
-    const redditApiUrl = `https://www.reddit.com/search.json?q=${encodeURIComponent(redditQuery)}`;
+      postsContainer.innerHTML = "";
 
-    fetch(redditApiUrl)
-        .then(response => {
-            if (!response.ok) throw new Error("Reddit API request failed");
-            return response.json();
-        })
-        .then(data => {
-            const results = data.data.children;
-            const postsContainer = document.getElementById("reddit-posts");
+      results.slice(0, 10).forEach((post) => {
+        const link = document.createElement("a");
+        link.href = `https://www.reddit.com${post.data.permalink}`;
+        link.target = "_blank";
+        link.innerText = post.data.title;
+        link.style.display = "block";
+        link.style.marginBottom = "10px";
+        link.style.color = "var(--color-link, #007bff)";
+        link.style.textDecoration = "none";
+        postsContainer.appendChild(link);
+      });
+    })
+    .catch(() => {
+      document.getElementById("reddit-posts").innerText =
+        "Failed to load discussions.";
+    });
 
-            if (!results.length) {
-                postsContainer.innerHTML = "No discussions found.";
-                return;
-            }
+  const applyTheme = () => {
+    const isDarkMode = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
+    resultsContainer.style.background = isDarkMode ? "#1e1e1e" : "#ffffff";
+    resultsContainer.style.color = isDarkMode ? "#ffffff" : "#000000";
+    resultsContainer.style.border = isDarkMode
+      ? "1px solid #444"
+      : "1px solid #ddd";
+  };
 
-            postsContainer.innerHTML = "";
-
-            results.slice(0, 5).forEach(post => {
-                const link = document.createElement("a");
-                link.href = `https://www.reddit.com${post.data.permalink}`;
-                link.target = "_blank";
-                link.innerText = post.data.title;
-                link.style.display = "block";
-                link.style.marginBottom = "10px";
-                link.style.color = "var(--color-link, #007bff)";
-                link.style.textDecoration = "none";
-                postsContainer.appendChild(link);
-            });
-        })
-        .catch(() => {
-            document.getElementById("reddit-posts").innerText = "Failed to load discussions.";
-        });
-
-    const applyTheme = () => {
-        const isDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        resultsContainer.style.background = isDarkMode ? "#1e1e1e" : "#ffffff";
-        resultsContainer.style.color = isDarkMode ? "#ffffff" : "#000000";
-        resultsContainer.style.border = isDarkMode ? "1px solid #444" : "1px solid #ddd";
-    };
-
-    applyTheme();
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+  applyTheme();
+  window
+    .matchMedia("(prefers-color-scheme: dark)")
+    .addEventListener("change", applyTheme);
 });
 
 updateGoogleSearchBar(cleanQuery(query));
