@@ -15,6 +15,14 @@ function updateGoogleSearchBar(newText) {
   }
 }
 
+function getStrictlyReddit() {
+  return new Promise((resolve) => {
+      chrome.storage.local.get("strictlyReddit", (data) => {
+          resolve(data.strictlyReddit);
+      });
+  });
+}
+
 chrome.storage.local.get(["showDiscussions", "strictlyReddit"], (data) => {
   if (!data.showDiscussions) return;
 
@@ -125,4 +133,8 @@ chrome.storage.local.get(["showDiscussions", "strictlyReddit"], (data) => {
     .addEventListener("change", applyTheme);
 });
 
-updateGoogleSearchBar(cleanQuery(query));
+getStrictlyReddit().then((strictlyReddit) => {
+  if (strictlyReddit) {
+    updateGoogleSearchBar(cleanQuery(query));
+  }
+});

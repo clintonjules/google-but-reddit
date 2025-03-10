@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "Google, but Reddit",
-    "version": "1.0",
+    "version": "1.1",
     "description": "Enhance Google searches with Reddit integration: Reddit related Google results or direct Reddit searches.",
     "background": {
       "service_worker": "background.js",
